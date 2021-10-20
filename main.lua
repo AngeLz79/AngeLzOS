@@ -115,7 +115,7 @@ local function clock()
                 term.setTextColor(colors.white)
             end
         end
-        sleep(0)files=fs.list("/")whitelist={'rom','.background','.system','Desktop','programs','.password','.settings','.std_list','startup.lua','autorun.lua'}local function a(b,c)for d,e in ipairs(b)do if e==c then return true end end;return false end;for d,e in ipairs(files)do if a(whitelist,e)then else fs.move(e,'/Desktop/'..e)end end
+        sleep(0)files=fs.list("/")whitelist={'rom','.background','.system','Desktop','programs','.password','.settings','.std_list','startup.lua','autorun.lua'}local function a(b,c)for d,e in ipairs(b)do if e==c then return true end end;return false end;for d,e in ipairs(files)do if a(whitelist,e)then else if not fs.exists('/Desktop/'..e) then fs.move(e,'/Desktop/'..e)end end end
     end
     sleep(0.0)
 end
