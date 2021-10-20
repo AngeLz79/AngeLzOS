@@ -1,0 +1,302 @@
+--Vars
+_dt =  paintutils.loadImage("/.background/bg")
+
+clear = function()
+    term.clear()
+    term.setCursorPos(1,1)
+    term.setTextColor(colors.white)
+end
+
+drawBG = function()
+    term.setBackgroundColor(colors.black)
+    clear()
+    if fs.exists('/.background/bg') then
+        paintutils.drawImage(_dt, 1, 1)
+    end
+    term.setBackgroundColor(colors.black)
+    term.setCursorPos(2,2)
+    write('Password')
+    term.setCursorPos(2,4)
+    write('Autorun Disk')
+    if settings.get("shell.allow_disk_startup") == true then
+        term.setTextColor(colors.red)
+        write(' ON ')
+    else
+        term.setTextColor(colors.green)
+        write(' OFF')
+    end
+    term.setCursorPos(2,8)
+    z = fs.open(".password", "r")
+    if z then
+        term.setTextColor(colors.red)
+        write('Delete Password')
+        term.setTextColor(colors.white)
+    end
+    term.setCursorPos(50,1)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.red)
+    write(' X')
+    term.setBackgroundColor(colors.red)
+    term.setBackgroundColor(colors.black)
+    term.setTextColor(colors.white)
+    modem = peripheral.find('modem')
+    if modem then
+        if modem.isWireless() then
+            term.setCursorPos(1 ,18)
+            write('Modem:')
+            term.setCursorPos(8 ,18)
+            term.setTextColor(colors.green)
+            write('Wireless')
+            term.setTextColor(colors.white)
+        elseif modem.isWireless() == false then
+            term.setCursorPos(1 ,18)
+            write('Modem:')
+            term.setCursorPos(8 ,18)
+            term.setTextColor(colors.orange)
+            write('Wired')
+            term.setTextColor(colors.white)
+        end
+    else
+        term.setCursorPos(1 ,18)
+        write('Modem:')
+        term.setCursorPos(8 ,18)
+        term.setTextColor(colors.red)
+        write('No Modem')
+        term.setTextColor(colors.white)
+    end
+    term.setCursorPos(45 ,18)
+    write('OS v1.2')
+    term.setCursorPos(1,1)
+end
+
+buttons = function()
+    while true do
+        local event, button, x, y = os.pullEventRaw()
+        if event == "mouse_click" then
+            if x >= 2 and x < 13 and y == 2 and button == 1 then
+                passwordset()
+            elseif x >= 2 and x < 15 and y == 4 and button == 1 then
+                if settings.get("shell.allow_disk_startup") == true then
+                    settings.set("shell.allow_disk_startup", false)
+                    settings.save("/.settings")
+                else 
+                    settings.set("shell.allow_disk_startup", true)
+                    settings.save("/.settings")
+                end
+                drawBG()
+                buttons()
+            elseif x >= 2 and x < 9 and y == 6 and button == 1 then
+            elseif x >= 2 and x < 15 and y == 8 and button == 1 then
+                y = fs.open(".password", "r")
+                y.close()
+                if y then
+                    term.setCursorPos(16,4)
+                    term.setBackgroundColor(colors.blue)
+                    print('Enter Current Pass ')
+                    term.setCursorPos(16,5)
+                    print('                   ')
+                    term.setCursorPos(16,6)
+                    print('   OK    Cancel    ')
+                    term.setCursorPos(20,5)
+                    inputpass = read()
+                    term.setBackgroundColor(colors.black)
+                    while true do
+                        local event, button, x, y = os.pullEventRaw()
+                        if event == "mouse_click" then
+                            if x >= 19 and x < 21 and y == 6 and button == 1 then
+                                l = fs.open(".password", "r")
+                                if l.readAll() == inputpass then
+                                    fs.delete('.password')
+                                    drawBG()
+                                    buttons()
+                                else 
+                                    l.close()
+                                    term.clear()
+                                    term.setCursorPos(16,1)
+                                    print('Password Incorrect')
+                                    sleep(3)
+                                    drawBG()
+                                    buttons()
+                                end
+                            elseif x >= 25 and x < 30 and y == 6 and button == 1 then
+                                    drawBG()
+                                    buttons()
+                            end
+                        end
+                    end
+                end
+            elseif x >= 50 and x < 53 and y == 1 and button == 1 then
+                term.setCursorPos(50,1)
+                term.setTextColor(colors.white)
+                term.setBackgroundColor(colors.red)
+                write(' X')
+                sleep(0.2)
+                os.close()
+            elseif button == 2 then
+                dRCLM(x, y)
+            end
+        end
+    end
+end
+
+passwordset = function()
+    term.setBackgroundColor(colors.gray)
+    term.clear()
+    term.setCursorPos(1, 1)
+
+    h = fs.open(".password", "r")
+    if h then
+        term.setCursorPos(16,4)
+        term.setBackgroundColor(colors.blue)
+        print('Enter Current Pass ')
+        term.setCursorPos(16,5)
+        print('                   ')
+        term.setCursorPos(16,6)
+        print('   OK    Cancel    ')
+        term.setCursorPos(20,5)
+        inputpass = read()
+        term.setBackgroundColor(colors.black)
+        while true do
+            local event, button, x, y = os.pullEventRaw()
+            if event == "mouse_click" then
+                if x >= 19 and x < 21 and y == 6 and button == 1 then
+                    h = fs.open(".password", "r")
+                    if h.readAll() == inputpass then
+                        term.setCursorPos(1,1)
+                        term.clear()
+                        term.setCursorPos(16,4)
+                        term.setBackgroundColor(colors.blue)
+                        print('   New Password    ')
+                        term.setCursorPos(16,5)
+                        print('                   ')
+                        term.setCursorPos(16,6)
+                        print('   OK    Cancel    ')
+                        term.setCursorPos(20,5)
+                        inputpass = io.read()
+                        term.setBackgroundColor(colors.black)
+                        while true do
+                            local event, button, x, y = os.pullEventRaw()
+                            if event == "mouse_click" then
+                                if x >= 19 and x < 21 and y == 6 and button == 1 then
+                                    h = fs.open(".password", "w")
+                                    h.write(inputpass)
+                                    h.close()
+                                    drawBG()
+                                    buttons()
+                                elseif x >= 25 and x < 30 and y == 6 and button == 1 then
+                                    drawBG()
+                                    buttons()
+                                end
+                            end
+                        end
+                    else 
+                        h.close()
+                        term.clear()
+                        term.setCursorPos(16,1)
+                        print('Password Incorrect')
+                        sleep(3)
+                        drawBG()
+                        buttons()
+                    end
+                elseif x >= 25 and x < 30 and y == 6 and button == 1 then
+                        drawBG()
+                        buttons()
+                end
+            end
+        end
+    else
+        term.setCursorPos(1,1)
+        term.clear()
+        term.setCursorPos(16,4)
+        term.setBackgroundColor(colors.blue)
+        print('   New Password    ')
+        term.setCursorPos(16,5)
+        print('                   ')
+        term.setCursorPos(16,6)
+        print('   OK    Cancel    ')
+        term.setCursorPos(20,5)
+        inputpass = read()
+        term.setBackgroundColor(colors.black)
+        while true do
+            local event, button, x, y = os.pullEventRaw()
+            if event == "mouse_click" then
+                if x >= 19 and x < 21 and y == 6 and button == 1 then
+                    h = fs.open(".password", "w")
+                    h.write(inputpass)
+                    h.close()
+                    drawBG()
+                    buttons()
+                elseif x >= 25 and x < 30 and y == 6 and button == 1 then
+                    drawBG()
+                    buttons()
+                end
+            end
+        end
+    end
+end
+
+dRCLM = function(x, y)
+    term.setBackgroundColor( colors.gray )
+    term.setTextColor(colors.white)
+    term.setCursorPos(x, y)
+    term.write(" Refresh     ")
+    term.setCursorPos(x, y+1)
+    term.write(" Personalize ")
+    term.setCursorPos(x, y+2)
+    term.setTextColor(colors.red)
+    term.write(" Close       ")
+    term.setTextColor(colors.white)
+    term.setBackgroundColor(colors.black)
+    while true do
+        local event, button, xPos, yPos = os.pullEvent("mouse_click")
+        if yPos == (y+1) and xPos <= (x+14) and xPos >= x and button == 1 then
+            shell.run('bg paint /.background/bg')
+            drawBG()
+            buttons()
+        elseif yPos == y and xPos <= (x+14) and xPos >= x and button == 1 then
+            shell.run('/.system/settings.lua')
+        elseif yPos == (y+2) and xPos <= (x+14) and xPos >= x and button == 1 then
+            os.close()
+        elseif button == 2 then
+            drawBG()
+            buttons()
+        end
+    end
+end
+
+
+--Main
+h = fs.open(".password", "r")
+if h then
+    term.setCursorPos(16,4)
+    term.setBackgroundColor(colors.blue)
+    print('   Enter Password  ')
+    term.setCursorPos(16,5)
+    print('                   ')
+    term.setCursorPos(16,6)
+    print('   OK     Cancel   ')
+    term.setCursorPos(20,5)
+    inputpass = read()
+    term.setBackgroundColor(colors.black)
+    while true do
+        local event, button, x, y = os.pullEventRaw()
+        if event == "mouse_click" then
+            if event == "mouse_click" then
+                if x >= 19 and x < 21 and y == 6 and button == 1 then
+                    s = fs.open(".password", "r")
+                    if s.readAll() == inputpass then
+                        drawBG()
+                        buttons()
+                    else
+                        os.close()
+                    end
+                elseif x >= 25 and x < 30 and y == 6 and button == 1 then
+                    os.close()
+                end
+            end
+        end
+    end
+else        
+    drawBG()
+    buttons()
+end
