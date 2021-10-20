@@ -79,7 +79,7 @@ drawBG = function()
         end
     end
 
-    term.setCursorPos(45 ,1)
+    term.setCursorPos(39 ,1)
     write('AngeLzOS v1.0')
     term.setCursorPos(1,1)
 end
