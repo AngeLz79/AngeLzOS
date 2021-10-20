@@ -24,7 +24,7 @@ else
     term.setBackgroundColor(bgColour)
     term.clear()
     term.setCursorPos(1,1)
-    print('AngeLzOS 1.3')
+    print('AngeLzOS 1.0')
     shell.setAlias("shell", "/.system/shell.lua")
     shell.setAlias("startup", "/.system/ftr.lua")
     shell.setAlias("menu", "/.system/ftr.lua")
