@@ -43,12 +43,27 @@ local clear = function(b,c)
     term.setCursorPos(1,1)
 end
 
-local dot = function(x,c)
-    for x2 = 1, c do
-        term.setCursorPos(20+x2+x,6)
+local tablelength = function(T)
+    local count = 0
+    for _ in pairs(T) do count = count + 1 end
+    return count
+end
+
+local bar = function(count, version)
+    local xO, yO = term.getCursorPos()
+    local versionSize = #installer[version]
+    local percent = count/versionSize
+    local xH, yH = term.getSize()
+    local filled = round((xH-6)*percent)
+    term.setCursorPos(xH-3,6)
+    print(round(percent*100)..'%')
+    for x = 1, filled do
+        term.setCursorPos(x+2,6)
         term.blit('\153','5','d')
-        sleep(0.1)
+        term.setCursorPos(1,9)
+        print('X:'..x..'\nxH: '..xH..'\nFilled:'..filled..'\npercent:'..percent..'\n#installer:'..#installer[version]..'\ncount:'..count)
     end
+    term.setCursorPos(xO,yO)
 end
 
 local install = function(v)
@@ -59,29 +74,24 @@ local install = function(v)
     fs.makeDir("/.system")
     vl = math.floor(25 / #installer[v])
     for i = 1, #installer[v] do
-        ve = round(vl*i)
-        for i2 = 1, ve do
-            term.setCursorPos(ve+2,6)
-            term.blit('\153\153','55','dd')
-        end
         term.setCursorPos(2,2)
         write(i..'/')
         print(#installer[v])
+        bar(i, v)
         term.clearLine()
         print(' '..installer[v..'_filenames'][i])
-        term.setCursorPos(-20,-20)
+        term.setCursorPos(-200,-200)
         shell.run('wget '..installer[v][i]..' '..installer[v..'_filenames'][i])
     end
-    sleep(1)
     term.setCursorPos(2,2)
     term.clearLine()
     term.setCursorPos(2,1)
     term.clearLine()
     term.blit('Installing AngeLzOS', '0000000000000000000','7777777777777777777')
-    fs.makeDir("/Desktop") dot(4,1)
-    settings.set("shell.allow_disk_startup",false) dot(5,1)
-    settings.save('/.settings') dot(6,1)
-    print('')
+    fs.makeDir("/Desktop")
+    settings.set("shell.allow_disk_startup",false)
+    settings.save('/.settings')
+    term.setCursorPos(2,8)
     print('done')
     sleep(3)
     clear(colors.black, colors.white)
