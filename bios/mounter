@@ -1,0 +1,175 @@
+--WINDONT
+_G.windont = require "apis/windont"
+local windo = {}
+for d,e in pairs(windont)do windo[d]=e end
+
+_G.windonwt = windo
+
+--MOUNT
+local oldFs = {}
+local chrooted = false
+local chrootdir = "/"
+local staticDirs = {
+  [1] = "rom",
+}
+
+local mountDirs = {}
+
+_G.mounter={}
+mounter.initialize=function()end;
+mounter.mount=function(a,b)local c={source=a,dir=b}table.insert(mountDirs,c)end;
+mounter.getMountPath=function(a)for d,e in pairs(mountDirs)do if e.source==a then return e.dir end end;return nil end;
+mounter.unmount=function(f)local g=nil;for d,e in pairs(mountDirs)do if e.source==f then g=d end end;if g then table.remove(mountDirs,g)return true else return false end end;
+mounter.chroot=function(b)if chrooted then return false end;chrooted=true;chrootdir=oldFs.combine("",b)return chrootdir end;
+mounter.addStaticDir=function(h)table.insert(staticDirs,h)end;
+mounter.unChroot=function()chrooted=false;chrootdir="/"end;
+mounter.getChrootDir=function()return chrootdir end;
+for d,e in pairs(_G["fs"])do oldFs[d]=e end
+function debug_realpath(a)return getRealPath(a)end
+
+local function getStart(path, pattern)
+  return string.sub(path, 1, string.len(pattern)) == pattern
+end
+
+local function getRest(path, pattern)
+  return string.sub(path, 1 + string.len(pattern)) 
+end
+
+local function dump(o)
+  if type(o) == 'table' then
+     local s = '{ '
+     for k,v in pairs(o) do
+        if type(k) ~= 'number' then k = '"'..k..'"' end
+        s = s .. '['..k..'] = ' .. dump(v) .. ','
+     end
+     return s .. '} '
+  else
+     return tostring(o)
+  end
+end
+
+local function getRealPath(path)
+  if path then
+    if type(path) ~= "string" then return error("Expected string, got: "..type(path)) end
+    for k, v in pairs(staticDirs) do
+      if getStart(oldFs.combine("", path), v) then
+        return path
+      end
+    end
+    for k, v in pairs(mountDirs) do
+      if getStart(oldFs.combine("", path), oldFs.combine("", v.dir)) then
+        local rest = getRest(oldFs.combine("", path), oldFs.combine("", v.dir))
+        return fs.combine(v.source, rest)
+      end
+    end
+    
+    local realPath = oldFs.combine(chrootdir, path)
+    
+    return realPath
+  else
+    return nil
+  end
+end
+
+local function uac()
+  --UAC code
+  return true
+end
+
+local function isRoot(directory)
+  return oldFs.combine(chrootdir, "") == oldFs.combine(directory, "")
+end
+
+
+fs.list = function(path)
+  local dirs = oldFs.list(getRealPath(path))
+  
+  if isRoot(getRealPath(path)) then
+    table.insert(dirs, "rom")
+  end
+  
+  return dirs
+end
+
+fs.exists = function(path)
+  return oldFs.exists(getRealPath(path))
+end
+
+fs.isDir = function(path)
+  return oldFs.isDir(getRealPath(path))
+end
+
+fs.isReadOnly = function(path)
+  return oldFs.isReadOnly(getRealPath(path))
+end
+
+fs.getDrive = function(path)
+  return oldFs.getDrive(getRealPath(path))
+end
+
+fs.getSize = function(path)
+  return oldFs.getSize(getRealPath(path))
+end
+
+fs.makeDir = function(path)
+  if uac() ~= true then
+    return false
+  end
+  return oldFs.makeDir(getRealPath(path))
+end
+
+fs.move = function(from, to)
+  if uac() ~= true then
+    return false
+  end
+  return oldFs.move(getRealPath(from), getRealPath(to))
+end
+
+fs.copy = function(from, to)
+  if uac() ~= true then
+    return false
+  end
+  return oldFs.copy(getRealPath(from), getRealPath(to))
+end
+
+fs.delete = function(path)
+  if uac() ~= true then
+    return false
+  end
+  return oldFs.delete(getRealPath(path))
+end
+
+fs.open = function(path, mode)
+  return oldFs.open(getRealPath(path), mode)
+end
+
+fs.find = function(path)
+  local returndata = {}
+  data = oldFs.find(getRealPath(path))
+  if oldFs.find(getRealPath(path)) then
+    if data then
+      for i, v in ipairs(data) do
+        v = string.gsub(v,mounter.getChrootDir(),'') 
+        table.insert(returndata, v)        
+      end
+    else 
+      returndata = data
+    end
+  end
+  return returndata
+end
+
+fs.getDir = function(path)
+  data = oldFs.getDir(getRealPath(path))
+  if getRealPath(path) then
+    if data then
+      returndata = string.gsub(getRealPath(path),mounter.getChrootDir(),'')
+      if returndata == "" then
+        returndata = ""
+      end
+    else 
+      returndata = data
+    end
+  end
+  return returndata 
+end

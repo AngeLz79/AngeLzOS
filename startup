@@ -1,0 +1,295 @@
+os.loadAPI('/bios/apis/encrypt.lua')
+local function crash(reason)
+  term.setTextColor(colors.red)  
+
+  write("Boot process failed: ")
+  print(reason)
+
+  term.setTextColor(colors.white)
+  io.read()
+  local e = os.pullEventRaw('key')
+  os.reboot()
+end
+
+local clear = function (x,y,b,t)
+  term.setBackgroundColor(b)
+  term.setTextColor(t)
+  term.setCursorPos(x,y)
+  term.clear()
+  return true    
+end
+
+term.clear()
+term.setCursorPos(1,1)
+shell.setPath(shell.path()..":".."/tools/")
+local path = shell.getRunningProgram()
+print("Path is "..path)
+if path ~= "startup" then
+  print("Not running in root directory")
+end
+local succ = shell.run("/bios/mounter")
+
+if not succ then crash("Failing to mount root.") end
+disks = fs.find("/disk*/")
+print(#disks.." were found.")
+if not fs.exists("/bios/part.cfg") then
+  crash("Partition table not found")
+end
+
+local fileHandle = fs.open("/bios/part.cfg", "r")
+local contents = fileHandle.readAll()
+fileHandle.close()
+filaHandle = nil
+local ptbl = textutils.unserialize(contents)
+contents = nil
+
+if type(ptbl) ~= "table" then
+  crash("Could not parse partition table.")
+end
+
+local bootables = 0
+
+for k, v in pairs(ptbl) do
+  if v.type == "os" then
+    bootables = bootables + 1
+  end
+end
+
+--Find Disk Drives
+
+local function dump(o)
+  if type(o) == 'table' then
+     local s = '{ '
+     for k,v in pairs(o) do
+        if type(k) ~= 'number' then k = '"'..k..'"' end
+        s = s .. '['..k..'] = ' .. dump(v) .. ','
+     end
+     return s .. '} '
+  else
+     return tostring(o)
+  end
+end
+
+local disks2 = { peripheral.find('drive') }
+
+local diskCount = 0
+for _ in pairs(disks2) do diskCount = diskCount + 1 end
+
+for v=1,diskCount,1 do 
+  if disks2[v].isDiskPresent() then
+    if disks2[v].getMountPath() then 
+      if fs.exists(disks2[v].getMountPath()..'/startup') or fs.exists(disks2[v].getMountPath()..'/startup.lua') then
+        if disks2[v].getDiskLabel() then
+          table.insert(ptbl,{
+            ["directory"] = tostring("/"..disks2[v].getMountPath()),
+            ["description"] = disks2[v].getDiskLabel(),
+            ["type"] = "disk",
+            ["aware"] = false,
+          }) 
+        elseif disks2[v].getDiskID() then
+          table.insert(ptbl,{
+            ["directory"] = tostring("/"..disks2[v].getMountPath()),
+            ["description"] = 'Disk '..disks2[v].getDiskID(),
+            ["type"] = "disk",
+            ["aware"] = false,
+          })
+        else
+          table.insert(ptbl,{
+            ["directory"] = tostring("/"..disks2[v].getMountPath()),
+            ["description"] = 'Unknown Disk',
+            ["type"] = "disk",
+            ["aware"] = false,
+          })
+        end
+      end
+    end
+  end
+end
+
+
+if bootables == 0 then
+  crash("No bootable partitions.")
+end
+
+local oses = {}
+
+for k,v in pairs(ptbl) do
+  print("Found partition "..v.directory..", type "..v.type..": "..v.description)
+  print("System is aware of partitions: "..tostring(v.aware)) 
+  if v.type == "os" then
+    table.insert(oses, v)
+  elseif v.type == "disk" then
+    table.insert(oses, v)
+  end
+end
+
+local recovery = {
+  ["aware"] = true,
+  ["type"] = "os",
+  ["directory"] = "/recovery/",
+  ["description"] = "Recovery",
+}
+
+table.insert(oses, recovery)
+
+term.clear()
+term.setBackgroundColor(colors.blue)
+term.setTextColor(colors.white)
+term.setCursorPos(1,1)
+
+local tX, tY = term.getSize()
+local activeEntry = 1
+
+--convenience functions
+local function printCentered(text, yH)
+  local tcp = (tX - string.len(text)) / 2
+  term.setCursorPos(tcp, yH)
+  print(text)
+end
+
+local function increaseEntry()
+  if activeEntry ~= #oses then
+    activeEntry = activeEntry + 1
+  else
+    activeEntry = 1
+  end
+end
+
+local function decreaseEntry()
+  if activeEntry ~= 1 then
+    activeEntry = activeEntry - 1
+  else
+    activeEntry = #oses
+  end
+end
+
+local function display()
+  local yH = (tY - #oses) / 2
+  if tX >= 39 then
+    printCentered("Please select an OS. (Use arrow keys)", 1)
+  else 
+    printCentered("Please select an OS.", 1)
+    printCentered("(Use arrow keys)", 2) 
+  end
+  for k, v in pairs(oses) do
+    local currYH = 3 + (k - 1)
+    if k == activeEntry then
+      term.setTextColor(colors.white)
+      term.setBackgroundColor(colors.lightBlue)
+      term.setCursorPos(2,currYH)
+      write(" "..v.description.." ")
+      term.setTextColor(colors.white)
+      term.setBackgroundColor(colors.blue)
+    else
+      term.setCursorPos(3,currYH)
+      write(v.description)
+    end
+  end
+  
+  term.setCursorPos(2, tY - 1)
+end
+
+if bootables >= 0 then
+  running = true
+end 
+
+local function getInput()
+  local event, key = os.pullEventRaw("key")
+  if key == keys.down then
+    increaseEntry()
+  elseif key == keys.up then
+    decreaseEntry()
+  elseif key == keys.enter then
+    running = false
+  end
+end
+
+while running do
+  term.clear()
+  display()
+  getInput()
+end
+
+term.setBackgroundColor(colors.black)
+term.setTextColor(colors.white)
+term.clear()
+term.setCursorPos(1,1)
+
+local chosenOS = oses[activeEntry]
+
+if chosenOS.description == "Shell" then
+  sleep(0.2)
+  shell.run('shell')
+  os.reboot() 
+elseif chosenOS.description == "AngeLzOS" then
+  local startOS = function()
+    mounter.chroot('/partitions/c')
+    for k, v in pairs(disks) do
+      mounter.mount(v, v)
+    end
+    clear(1,1,colors.black,colors.white)
+    if fs.exists('/os/.boot.lua') then
+      local shelldata = shell.run('/os/.boot.lua')  
+      if shelldata then
+        os.reboot()
+      end
+      print('boot Error')
+    else
+      error('boot Missing')
+    end
+  end 
+  local errorHandler = function()
+    local success, message = pcall(startOS)
+    if success then
+        return true
+    end
+    if message == "Terminated" then
+        os.reboot()
+    else  
+        clear(1,1,colors.blue,colors.white)
+        term.clear()
+        term.setCursorPos(1,1)
+        mounter.unChroot()
+        write("Recovery\nYour PC needs to be Repaired\n\nThe Boot Data for Your PC is missing or contains Errors.\n\nFile: /os/.boot\nError code: ")
+        term.setTextColor(colors.red)
+        print(message)
+        term.setTextColor(colors.white)
+        print("\n1) Return\n2) Recovery\n3) Shutdown")
+        local scan = true
+        while scan do
+            local b, t = os.pullEventRaw("key")
+            if b == "key" then
+                if t == 2 then
+                    clear(1,1,colors.black,colors.white)
+                    print('Please Wait')
+                    scan = false
+                    sleep(0.3)
+                    clear(1,1,colors.black,colors.white)
+                    scan = false
+                    shell.run('/startup')
+                elseif t == 3 then
+                    clear(1,1,colors.black,colors.white)
+                    print('Please Wait')
+                    sleep(0.3)
+                    clear(1,1,colors.black,colors.white)
+                    mounter.chroot('recovery')
+                    shell.run('/startup')
+                elseif t == 4 then
+                    os.shutdown()
+                end
+            end
+        end
+    end
+    os.reboot()
+  end
+  errorHandler()
+else
+  mounter.chroot(chosenOS.directory)
+  if not chosenOS.aware then
+    for k, v in pairs(disks) do
+      mounter.mount(v, v)
+    end
+    --mounter.mount("/tools/", "/tools")
+  end
+  shell.run("startup")
+end
