@@ -60,8 +60,6 @@ local bar = function(count, version)
     for x = 1, filled do
         term.setCursorPos(x+2,6)
         term.blit('\153','5','d')
-        term.setCursorPos(1,9)
-        print('X:'..x..'\nxH: '..xH..'\nFilled:'..filled..'\npercent:'..percent..'\n#installer:'..#installer[version]..'\ncount:'..count)
     end
     term.setCursorPos(xO,yO)
 end
